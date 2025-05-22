@@ -1,0 +1,118 @@
+# -------- Stage 1: builder --------
+FROM docker.io/library/debian:bookworm-slim AS builder
+
+# Install build tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  curl build-essential clang pkg-config git libssl-dev libpq-dev ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+# Install Rust via rustup
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+WORKDIR /workspace
+
+# Copy project structure for dependency caching
+COPY Cargo.toml Cargo.lock ./
+COPY agent-core/Cargo.toml ./agent-core/
+COPY mcp-engine/Cargo.toml ./mcp-engine/
+COPY rag-retriever/Cargo.toml ./rag-retriever/
+COPY service-api/Cargo.toml ./service-api/
+
+# Create dummy main.rs files to allow dependency caching
+RUN mkdir -p agent-core/src mcp-engine/src rag-retriever/src service-api/src && \
+    echo 'fn main() {}' > agent-core/src/main.rs && \
+    echo 'fn main() {}' > mcp-engine/src/main.rs && \
+    echo 'fn main() {}' > rag-retriever/src/main.rs && \
+    echo 'fn main() {}' > service-api/src/main.rs
+
+# Pre-build dependencies
+RUN cargo build --release
+
+# -------- Stage 2: dev --------
+FROM docker.io/library/debian:bookworm-slim AS dev
+
+# Install system tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  curl build-essential clang pkg-config git libssl-dev libpq-dev postgresql-client ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+# Install Rust
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
+ENV PATH="/root/.cargo/bin:/usr/local/bin:${PATH}"
+
+# ✅ Install sqlx-cli WITH TLS SUPPORT (important for NeonDB)
+RUN /root/.cargo/bin/cargo install sqlx-cli --no-default-features --features postgres,native-tls
+
+# Install `just` command runner
+RUN curl -fsSL https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+
+# Confirm installs
+RUN which sqlx && sqlx --version
+RUN which just && just --version
+
+# Set working directory
+WORKDIR /workspace
+
+# Copy source code
+COPY . .
+
+# Default to bash shell
+CMD ["bash"]
+#-------- Stage 1: builder --------
+FROM docker.io/library/debian:bookworm-slim AS builder
+
+# Install build tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  curl build-essential clang pkg-config git libssl-dev libpq-dev ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+# Install Rust via rustup
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+WORKDIR /workspace
+
+# Copy project structure for dependency caching
+COPY Cargo.toml Cargo.lock ./
+COPY agent-core/Cargo.toml ./agent-core/
+COPY mcp-engine/Cargo.toml ./mcp-engine/
+COPY rag-retriever/Cargo.toml ./rag-retriever/
+COPY service-api/Cargo.toml ./service-api/
+
+# Create dummy main.rs files for caching deps
+RUN mkdir -p agent-core/src mcp-engine/src rag-retriever/src service-api/src && \
+    echo 'fn main() {}' > agent-core/src/main.rs && \
+    echo 'fn main() {}' > mcp-engine/src/main.rs && \
+    echo 'fn main() {}' > rag-retriever/src/main.rs && \
+    echo 'fn main() {}' > service-api/src/main.rs
+
+RUN cargo build --release
+
+# -------- Stage 2: dev --------
+FROM docker.io/library/debian:bookworm-slim AS dev
+
+# Install system tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  curl build-essential clang pkg-config git libssl-dev libpq-dev postgresql-client ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+# Install Rust
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
+ENV PATH="/root/.cargo/bin:/usr/local/bin:${PATH}"
+
+# Install sqlx-cli
+RUN /root/.cargo/bin/cargo install sqlx-cli --no-default-features --features postgres
+
+# Install just command runner
+RUN curl -fsSL https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+
+# Confirm both are on path
+RUN which sqlx && sqlx --version
+RUN which just && just --version
+
+WORKDIR /workspace
+COPY . .
+
+CMD ["bash"]
+

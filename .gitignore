@@ -1,0 +1,21 @@
+.env
+sqlx-data.json
+# Rust
+/target
+**/target
+**/*.rs.bk
+
+# Node
+node_modules/
+pnpm-lock.yaml
+dist/
+.cache/
+
+# Editor/OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.log
+.env
+

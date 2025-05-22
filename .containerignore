@@ -1,0 +1,30 @@
+# Node.js
+node_modules
+dist
+.cache
+.pnpm-store
+npm-debug.log
+
+# Rust
+target
+Cargo.lock # only if you want fresh deps per build
+
+# Env / secrets
+.env
+.env.*
+
+# Git
+.git
+.gitignore
+
+# Editors
+.vscode
+.idea
+*.swp
+*.swo
+*.bak
+
+# OS noise
+.DS_Store
+Thumbs.db
+

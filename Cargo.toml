@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "agent-core",
+    "mcp-engine",
+    "rag-retriever",
+    "service-api"
+]
+
