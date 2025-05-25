@@ -1,12 +1,18 @@
+# Check what's in the corrupted Cargo.toml
+
+# Fix it by creating a proper Cargo.toml
 [package]
 name = "agent-core"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
-tokio = { version = "1", features = ["full"] }
-dotenvy = "0.15"
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "macros"] }
+sqlx = { version = "0.7", features = ["postgres", "runtime-tokio-rustls", "chrono", "uuid"] }
+tokio = { version = "1.0", features = ["full"] }
+anyhow = "1.0"
 tracing = "0.1"
 tracing-subscriber = "0.3"
+dotenvy = "0.15"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 

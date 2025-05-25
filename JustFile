@@ -5,7 +5,7 @@ default:
     @echo "  just build               # Compile entire Rust workspace"
     @echo "  just run-<crate>         # Run a specific crate binary"
     @echo "  just db                  # Connect to CockroachDB"
-    @echo "  just schema-check        # Validate SQLx macros with DATABASE_URL"
+    @echo "  just schema-check        # Validate SQLx macros with DATABASE_URL_COCKROACH"
     @echo "  just help                # Show this message"
 
 # 🛠️ Build the whole Rust workspace
@@ -27,11 +27,23 @@ run-rag-retriever:
 
 # 🧪 Check schema against CockroachDB (OLTP)
 schema-check:
-    dotenv -f .env sqlx migrate run --database-url $DATABASE_URL_COCKROACH
+    @if [ ! -f .env ]; then echo "❌ .env file not found."; exit 1; fi
+    @source .env && \
+    if [ -z "$$DATABASE_URL_COCKROACH" ]; then \
+        echo "❌ DATABASE_URL_COCKROACH is not set in .env"; \
+        exit 1; \
+    fi; \
+    sqlx migrate run --database-url $$DATABASE_URL_COCKROACH --source agent-core/migrations
 
 # 🐚 Open a psql connection to CockroachDB (OLTP)
 db:
-    dotenv -f .env psql $DATABASE_URL_COCKROACH
+    @if [ ! -f .env ]; then echo "❌ .env file not found."; exit 1; fi
+    @source .env && \
+    if [ -z "$$DATABASE_URL_COCKROACH" ]; then \
+        echo "❌ DATABASE_URL_COCKROACH is not set in .env"; \
+        exit 1; \
+    fi; \
+    psql $$DATABASE_URL_COCKROACH
 
 # 🆘 Help message
 help:

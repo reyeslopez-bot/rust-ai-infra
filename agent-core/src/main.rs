@@ -1,34 +1,29 @@
-use sqlx::PgPool;
-use dotenvy::dotenv;
-use std::env;
-use tokio::time::{sleep, Duration};
+mod agent;
+mod db;
+
+use crate::agent::processor::run_agent;
+use db::init::init_pool;
+
 use tracing::{info, error};
+use dotenvy::dotenv;
 
 #[tokio::main]
-async fn main() -> Result<(), sqlx::Error> {
+async fn main() -> anyhow::Result<()> {
+    // Load environment variables from `.env`
     dotenv().ok();
+
+    // Initialize logging (can be extended to JSON/logfmt/file output)
     tracing_subscriber::fmt::init();
 
-    let db_url = env::var("DATABASE_URL")
-        .expect("Missing DATABASE_URL env var");
-    let pool = PgPool::connect(&db_url).await?;
-
+    // Create a connection pool to CockroachDB / PostgreSQL
+    let pool = init_pool().await?;
     info!("🚀 Agent started and connected to the DB.");
 
-    loop {
-        match do_agent_task(&pool).await {
-            Ok(_) => info!("✅ Agent task complete."),
-            Err(e) => error!("❌ Agent task failed: {e}"),
-        }
-
-        sleep(Duration::from_secs(5)).await;
+    // Start agent logic and log if it fails
+    if let Err(e) = run_agent(&pool).await {
+        error!("❌ Agent crashed: {:?}", e);
     }
-}
 
-async fn do_agent_task(pool: &PgPool) -> Result<(), sqlx::Error> {
-    // 🧠 Replace this with actual logic (e.g., fetch tasks, write logs)
-    let result = sqlx::query!("SELECT now() as time").fetch_one(pool).await?;
-    info!("⏱️ DB Time: {:?}", result.time);
     Ok(())
 }
 
