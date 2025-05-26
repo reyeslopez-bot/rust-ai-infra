@@ -1,51 +1,10 @@
-# 🧠 Justfile for ai-infra (Rust + SQLx + Cockroach + Neon)
-
+set unstable  # enable unstable features if needed
 default:
-    @echo "Available commands:"
+    @echo "Available command"
     @echo "  just build               # Compile entire Rust workspace"
-    @echo "  just run-<crate>         # Run a specific crate binary"
-    @echo "  just db                  # Connect to CockroachDB"
-    @echo "  just schema-check        # Validate SQLx macros with DATABASE_URL_COCKROACH"
-    @echo "  just help                # Show this message"
-
-# 🛠️ Build the whole Rust workspace
-build:
-    cargo build --workspace
-
-# 🚀 Run individual binaries
-run-agent-core:
-    cargo run -p agent-core
-
-run-service-api:
-    cargo run -p service-api
-
-run-mcp-engine:
-    cargo run -p mcp-engine
-
-run-rag-retriever:
-    cargo run -p rag-retriever
-
-# 🧪 Check schema against CockroachDB (OLTP)
-schema-check:
-    @if [ ! -f .env ]; then echo "❌ .env file not found."; exit 1; fi
-    @source .env && \
-    if [ -z "$$DATABASE_URL_COCKROACH" ]; then \
-        echo "❌ DATABASE_URL_COCKROACH is not set in .env"; \
-        exit 1; \
-    fi; \
-    sqlx migrate run --database-url $$DATABASE_URL_COCKROACH --source agent-core/migrations
-
-# 🐚 Open a psql connection to CockroachDB (OLTP)
-db:
-    @if [ ! -f .env ]; then echo "❌ .env file not found."; exit 1; fi
-    @source .env && \
-    if [ -z "$$DATABASE_URL_COCKROACH" ]; then \
-        echo "❌ DATABASE_URL_COCKROACH is not set in .env"; \
-        exit 1; \
-    fi; \
-    psql $$DATABASE_URL_COCKROACH
-
-# 🆘 Help message
-help:
-    just default
-
+    @echo "  just run-<crate>         # run a specific crate binary"
+    @echo "  just db                  # connect to CockroachDB"
+    @echo "  just schema check        # Validate SQLx macros with DATABASE_URL_COCKROACH"
+    @echo "  just help                # show this message"
+dev:
+    ./dev.sh

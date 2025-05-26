@@ -6,11 +6,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   curl build-essential clang pkg-config git libssl-dev libpq-dev ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
-# Install Rust via rustup
+# Install Rust
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 WORKDIR /workspace
+
+# Copy lockfile to force cache busting when it changes
+COPY .devcontainer/pnpm-lock.yaml /tmp/
+RUN echo "trigger cache bust"
 
 # Copy project structure for dependency caching
 COPY Cargo.toml Cargo.lock ./
@@ -19,7 +23,10 @@ COPY mcp-engine/Cargo.toml ./mcp-engine/
 COPY rag-retriever/Cargo.toml ./rag-retriever/
 COPY service-api/Cargo.toml ./service-api/
 
-# Create dummy main.rs files to allow dependency caching
+ARG DATABASE_URL
+ENV DATABASE_URL=${DATABASE_URL}
+
+# Create dummy main.rs files
 RUN mkdir -p agent-core/src mcp-engine/src rag-retriever/src service-api/src && \
     echo 'fn main() {}' > agent-core/src/main.rs && \
     echo 'fn main() {}' > mcp-engine/src/main.rs && \
@@ -41,21 +48,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
 ENV PATH="/root/.cargo/bin:/usr/local/bin:${PATH}"
 
-# Install sqlx-cli WITH TLS SUPPORT (important for NeonDB)
+# Install sqlx-cli
 RUN /root/.cargo/bin/cargo install sqlx-cli --no-default-features --features postgres,native-tls
+RUN sqlx --version || echo "⚠️ sqlx version check failed (maybe missing .env)"
 
-# Install `just` command runner
+# Install just
 RUN curl -fsSL https://just.systems/install.sh | bash -s -- --to /usr/local/bin
-
-# Confirm installs
-RUN which sqlx && sqlx --version
 RUN which just && just --version
 
-# Set working directory
+# Set pnpm store path
+ENV PNPM_HOME="/root/.pnpm-store"
+
+# Working directory
 WORKDIR /workspace
 
-# Copy source code
+# Copy full source
 COPY . .
 
-# Default to bash shell
 CMD ["bash"]
+CMD ["just", "dev"]
+

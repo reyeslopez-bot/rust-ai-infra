@@ -19,11 +19,8 @@ async fn main() -> anyhow::Result<()> {
     let pool = init_pool().await?;
     info!("🚀 Agent started and connected to the DB.");
 
-    // Start agent logic and log if it fails
-    if let Err(e) = run_agent(&pool).await {
-        error!("❌ Agent crashed: {:?}", e);
-    }
-
+    run_agent(&pool).await?;
     Ok(())
+
 }
 
