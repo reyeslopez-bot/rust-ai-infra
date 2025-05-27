@@ -9,6 +9,7 @@ use serde::Deserialize;
 use sqlx::PgPool;
 use tokio::time::sleep;
 use tracing::{error, info};
+use crate::agent::LLM::analyze_transaction;
 
 #[derive(Debug, Deserialize)]
 struct TxPayload {

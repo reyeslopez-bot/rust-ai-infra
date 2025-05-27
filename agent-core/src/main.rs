@@ -1,9 +1,7 @@
 mod agent;
 mod db;
-
-use crate::agent::processor::run_agent;
-use db::init::init_pool;
-
+use agent::processor::run_agent;
+use agebt::db::init::create_pool;
 use tracing::{info};
 use dotenvy::dotenv;
 
@@ -16,7 +14,7 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
     // Create a connection pool to CockroachDB / PostgreSQL
-    let pool = init_pool().await?;
+    let pool = create_pool().await?;
     info!("🚀 Agent started and connected to the DB.");
 
     run_agent(pool).await;
