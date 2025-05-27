@@ -1,0 +1,38 @@
+FROM rust:1.75 as builder
+
+WORKDIR /app
+COPY Cargo.toml Cargo.lock ./
+COPY agent-core/Cargo.toml ./agent-core/
+COPY mcp-engine/Cargo.toml ./mcp-engine/
+COPY rag-retriever/Cargo.toml ./rag-retriever/
+COPY service-api/Cargo.toml ./service-api/
+
+# Create dummy main.rs files for dependency caching
+RUN mkdir -p agent-core/src mcp-engine/src rag-retriever/src service-api/src
+RUN echo "fn main() {}" > agent-core/src/main.rs
+RUN echo "fn main() {}" > mcp-engine/src/main.rs
+RUN echo "fn main() {}" > rag-retriever/src/main.rs
+RUN echo "fn main() {}" > service-api/src/main.rs
+
+# Build dependencies
+RUN cargo build --release -p service-api
+
+# Copy actual source code
+COPY service-api/src ./service-api/src
+
+# Build the actual application
+RUN touch service-api/src/main.rs && cargo build --release -p service-api
+
+# Runtime stage
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libssl3 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /app/target/release/service-api /usr/local/bin/service-api
+
+EXPOSE 3000
+
+CMD ["service-api"]

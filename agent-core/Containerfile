@@ -1,0 +1,45 @@
+FROM docker.io/library/rust:1.75 AS builder
+
+WORKDIR /app
+COPY Cargo.toml Cargo.lock ./
+COPY agent-core/Cargo.toml ./agent-core/
+COPY mcp-engine/Cargo.toml ./mcp-engine/
+COPY rag-retriever/Cargo.toml ./rag-retriever/
+COPY service-api/Cargo.toml ./service-api/
+
+# Create dummy main.rs files for dependency caching
+RUN mkdir -p agent-core/src mcp-engine/src rag-retriever/src service-api/src
+RUN echo "fn main() {}" > agent-core/src/main.rs
+RUN echo "fn main() {}" > mcp-engine/src/main.rs
+RUN echo "fn main() {}" > rag-retriever/src/main.rs
+RUN echo "fn main() {}" > service-api/src/main.rs
+
+# Build dependencies
+RUN cargo build --release -p agent-core
+
+# Copy actual source code
+COPY agent-core/src ./agent-core/src
+
+# Build the actual application
+RUN touch agent-core/src/main.rs && cargo build --release -p agent-core
+
+# Runtime stage
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libssl3 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /app/target/release/agent-core /usr/local/bin/agent-core
+
+# Install sqlx-cli for migrations
+RUN apt-get update && apt-get install -y wget && \
+    wget https://github.com/launchbadge/sqlx/releases/latest/download/sqlx-cli-x86_64-unknown-linux-gnu.tar.gz && \
+    tar -xzf sqlx-cli-x86_64-unknown-linux-gnu.tar.gz && \
+    mv sqlx /usr/local/bin/ && \
+    rm sqlx-cli-x86_64-unknown-linux-gnu.tar.gz
+
+COPY migrations ./migrations
+
+CMD ["sh", "-c", "sqlx migrate run && agent-core"]

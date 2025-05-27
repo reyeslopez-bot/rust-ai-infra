@@ -1,7 +1,8 @@
 # -------- Stage 1: builder --------
-FROM docker.io/library/debian:bookworm-slim AS builder
-
+FROM docker.io/library/rust:1.75 AS builder
 # Install build tools
+RUN rustup install nightly && rustup default nightly
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
   curl build-essential clang pkg-config git libssl-dev libpq-dev ca-certificates \
   && rm -rf /var/lib/apt/lists/*

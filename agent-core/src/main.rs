@@ -4,7 +4,7 @@ mod db;
 use crate::agent::processor::run_agent;
 use db::init::init_pool;
 
-use tracing::{info, error};
+use tracing::{info};
 use dotenvy::dotenv;
 
 #[tokio::main]
@@ -19,7 +19,7 @@ async fn main() -> anyhow::Result<()> {
     let pool = init_pool().await?;
     info!("🚀 Agent started and connected to the DB.");
 
-    run_agent(&pool).await?;
+    run_agent(pool).await;
     Ok(())
 
 }

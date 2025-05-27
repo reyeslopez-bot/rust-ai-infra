@@ -6,5 +6,13 @@ default:
     @echo "  just db                  # connect to CockroachDB"
     @echo "  just schema check        # Validate SQLx macros with DATABASE_URL_COCKROACH"
     @echo "  just help                # show this message"
-dev:
+# Justfile
+
+# Runs only on the host
+dev-host:
     ./dev.sh
+
+# Runs only inside the container
+dev:
+    cargo build
+

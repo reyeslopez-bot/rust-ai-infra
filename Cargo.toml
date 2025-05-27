@@ -5,5 +5,5 @@ members = [
     "rag-retriever",
     "service-api"
 ]
-resolver = "3"  # or "3" if you're using edition = "2024"
+resolver = "2"  # or "3" if you're using edition = "2024"
 

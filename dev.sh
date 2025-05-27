@@ -1,3 +1,7 @@
+if grep -qE 'container|podman' /proc/1/cgroup 2>/dev/null; then
+  echo "⚠️  dev.sh should only be run on the host machine, not inside the container."
+  exit 1
+fi
 #!/usr/bin/env bash
 set -euo pipefail
 IFS=$'\n\t'
@@ -72,7 +76,7 @@ if ! podman ps -a --format '{{.Names}}' | grep -Fxq "$CONTAINER_NAME"; then
     -v cargo-cache:/root/.cargo \
     -v rust-target:/workspace/target \
     -v pnpm-store:/root/.pnpm-store \
-    --add-host=host.containers.internal:host-gateway
+    --add-host=host.containers.internal:host-gateway \
     "$IMAGE_NAME" \
     bash
 elif ! podman ps --format '{{.Names}}' | grep -Fxq "$CONTAINER_NAME"; then
