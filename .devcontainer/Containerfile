@@ -1,71 +1,148 @@
-# -------- Stage 1: builder --------
-FROM docker.io/library/rust:1.75 AS builder
-# Install build tools
-RUN rustup install nightly && rustup default nightly
+# -------- Stage 1: Build dependencies layer (with Rust nightly) --------
+FROM rustlang/rust:nightly-slim AS planner
 
+# System deps (only what's needed for build)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-  curl build-essential clang pkg-config git libssl-dev libpq-dev ca-certificates \
+  pkg-config build-essential libssl-dev libpq-dev ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
-# Install Rust
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
+WORKDIR /app
 
-WORKDIR /workspace
-
-# Copy lockfile to force cache busting when it changes
-COPY .devcontainer/pnpm-lock.yaml /tmp/
-RUN echo "trigger cache bust"
-
-# Copy project structure for dependency caching
+# Copy only manifest files for caching
 COPY Cargo.toml Cargo.lock ./
 COPY agent-core/Cargo.toml ./agent-core/
 COPY mcp-engine/Cargo.toml ./mcp-engine/
 COPY rag-retriever/Cargo.toml ./rag-retriever/
 COPY service-api/Cargo.toml ./service-api/
 
-ARG DATABASE_URL
-ENV DATABASE_URL=${DATABASE_URL}
-
-# Create dummy main.rs files
+# Create dummy src for caching `cargo build`
 RUN mkdir -p agent-core/src mcp-engine/src rag-retriever/src service-api/src && \
     echo 'fn main() {}' > agent-core/src/main.rs && \
     echo 'fn main() {}' > mcp-engine/src/main.rs && \
     echo 'fn main() {}' > rag-retriever/src/main.rs && \
     echo 'fn main() {}' > service-api/src/main.rs
 
-# Pre-build dependencies
+# Pre-fetch and cache all dependencies
+RUN cargo fetch
 RUN cargo build --release
 
-# -------- Stage 2: dev --------
-FROM docker.io/library/debian:bookworm-slim AS dev
+# -------- Stage 2: Full build with real source --------
+FROM rustlang/rust:nightly-slim AS builder
 
-# Install system tools
+# System dependencies again
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  pkg-config build-essential libssl-dev libpq-dev ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy full project
+COPY . .
+
+# Optional: pass database URL for sqlx
+ARG DATABASE_URL
+ENV DATABASE_URL=${DATABASE_URL}
+
+# Build the final binary
+RUN cargo build --release
+
+# -------- Stage 3: Dev Container --------
+FROM debian:bookworm-slim AS dev
+
+# Install system tools and deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
   curl build-essential clang pkg-config git libssl-dev libpq-dev postgresql-client ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
-# Install Rust
+# Install Rust (nightly)
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
+RUN /root/.cargo/bin/rustup install nightly && /root/.cargo/bin/rustup default nightly
 ENV PATH="/root/.cargo/bin:/usr/local/bin:${PATH}"
 
 # Install sqlx-cli
 RUN /root/.cargo/bin/cargo install sqlx-cli --no-default-features --features postgres,native-tls
-RUN sqlx --version || echo "⚠️ sqlx version check failed (maybe missing .env)"
 
 # Install just
 RUN curl -fsSL https://just.systems/install.sh | bash -s -- --to /usr/local/bin
-RUN which just && just --version
 
-# Set pnpm store path
+# Setup pnpm store path
 ENV PNPM_HOME="/root/.pnpm-store"
 
-# Working directory
 WORKDIR /workspace
+# -------- Stage 1: Build dependencies layer (with Rust nightly) --------
+FROM rustlang/rust:nightly-slim AS planner
 
-# Copy full source
+# System deps (only what's needed for build)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  pkg-config build-essential libssl-dev libpq-dev ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy only manifest files for caching
+COPY Cargo.toml Cargo.lock ./
+COPY agent-core/Cargo.toml ./agent-core/
+COPY mcp-engine/Cargo.toml ./mcp-engine/
+COPY rag-retriever/Cargo.toml ./rag-retriever/
+COPY service-api/Cargo.toml ./service-api/
+
+# Create dummy src for caching `cargo build`
+RUN mkdir -p agent-core/src mcp-engine/src rag-retriever/src service-api/src && \
+    echo 'fn main() {}' > agent-core/src/main.rs && \
+    echo 'fn main() {}' > mcp-engine/src/main.rs && \
+    echo 'fn main() {}' > rag-retriever/src/main.rs && \
+    echo 'fn main() {}' > service-api/src/main.rs
+
+# Pre-fetch and cache all dependencies
+RUN cargo fetch
+RUN cargo build --release
+
+# -------- Stage 2: Full build with real source --------
+FROM rustlang/rust:nightly-slim AS builder
+
+# System dependencies again
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  pkg-config build-essential libssl-dev libpq-dev ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy full project
 COPY . .
 
-CMD ["bash"]
-CMD ["just", "dev"]
+# Optional: pass database URL for sqlx
+ARG DATABASE_URL
+ENV DATABASE_URL=${DATABASE_URL}
 
+# Build the final binary
+RUN cargo build --release
+
+# -------- Stage 3: Dev Container --------
+FROM debian:bookworm-slim AS dev
+
+# Install system tools and deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  curl build-essential clang pkg-config git libssl-dev libpq-dev postgresql-client ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+# Install Rust (nightly)
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
+RUN /root/.cargo/bin/rustup install nightly && /root/.cargo/bin/rustup default nightly
+ENV PATH="/root/.cargo/bin:/usr/local/bin:${PATH}"
+
+# Install sqlx-cli
+RUN /root/.cargo/bin/cargo install sqlx-cli --no-default-features --features postgres,native-tls
+
+# Install just
+RUN curl -fsSL https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+
+# Setup pnpm store path
+ENV PNPM_HOME="/root/.pnpm-store"
+
+WORKDIR /workspace
+
+# Copy full project source
+COPY . .
+
+# Start in shell or with Justfile
+CMD ["bash", "just", "dev"]

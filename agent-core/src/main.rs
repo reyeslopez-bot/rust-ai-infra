@@ -1,7 +1,7 @@
 mod agent;
 mod db;
 use agent::processor::run_agent;
-use agebt::db::init::create_pool;
+use agent::db::init::create_pool;
 use tracing::{info};
 use dotenvy::dotenv;
 
